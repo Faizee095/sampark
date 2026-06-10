@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; }
+body { @apply bg-gray-50 text-gray-900 antialiased; }
+
+.card-print {
+	@apply bg-white rounded-lg shadow-lg p-6 flex items-center justify-between gap-6;
+}
+
+.btn { @apply inline-flex items-center px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700; }
+.muted { @apply text-sm text-gray-500 }
+
+@media print {
+	.card-print { box-shadow: none; }
+	body { background: white; }
+}
