@@ -1,289 +1,37 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import QRCode from 'qrcode.react'
 import api from '../api'
 
+const authHeaders = (pass) => ({ 'x-admin-pass': pass })
+
 export default function Admin() {
-  const [list, setList] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [adminPass, setAdminPass] = useState(() => localStorage.getItem('adminPass') || '')
-  const [preview, setPreview] = useState(null)
+  const [pass, setPass] = useState(() => localStorage.getItem('adminPass') || '')
+  const [loggedIn, setLoggedIn] = useState(false)
+  const [qrs, setQrs] = useState([])
+  const [tab, setTab] = useState('overview')
   const [notice, setNotice] = useState(null)
-  const [isLogged, setIsLogged] = useState(() => !!localStorage.getItem('adminPass'))
-  const [view, setView] = useState('qrs') // 'qrs' or 'users'
-
-  // Users view state
-  const [users, setUsers] = useState([])
+  const [busy, setBusy] = useState(false)
   const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
-  const perPage = 10
 
-  async function generate() {
-    setLoading(true)
-    try {
-      const auth = { 'x-admin-pass': localStorage.getItem('adminPass') || adminPass }
-      const res = await api.post('/admin/generate', { count: 1 }, { headers: auth })
-      const created = res.data.created || []
-      // normalize created items to include used flag and url
-      const normalized = created.map((c) => ({ id: c.id, url: c.url, used: false }))
-      // show only newly created items and open the first card in a new tab for printing
-      setList(normalized)
-      setNotice(`Generated ${normalized.length} QR(s)`)
-      setView('qrs')
-      // do not open the registration form automatically — keep generated QRs visible for printing
-    } catch (err) {
-      const msg = err.response?.data?.error || err.message
-      setNotice(`Error: ${msg}`)
-    } finally {
-      setLoading(false)
-    }
+  async function load(passToUse = pass, silent = false) {
+    if (!silent) setBusy(true)
+    try { const { data } = await api.get('/admin/list', { headers: authHeaders(passToUse) }); setQrs(data.qrs || []); return true }
+    catch (err) { if (!silent) setNotice({ type: 'error', text: err.response?.data?.error || 'Could not load the dashboard.' }); return false }
+    finally { if (!silent) setBusy(false) }
   }
+  useEffect(() => { if (localStorage.getItem('adminPass')) { setLoggedIn(true); load(localStorage.getItem('adminPass')) } }, [])
 
-  async function loadAll() {
-    setLoading(true)
-    try {
-      const auth = { 'x-admin-pass': localStorage.getItem('adminPass') || adminPass }
-      const res = await api.get('/admin/list', { headers: auth })
-      const items = (res.data.qrs || []).map((q) => ({ id: q.id, url: `${window.location.origin}/qr/${q.id}`, used: !!q.used }))
-      // clear any preview and show everything
-      setPreview(null)
-      setList(items)
-      setNotice(`Loaded ${items.length} QR entries`)
-      setView('qrs')
-    } catch (err) {
-      const msg = err.response?.data?.error || err.message
-      setNotice(`Error: ${msg}`)
-    } finally {
-      setLoading(false)
-    }
-  }
+  async function login(event) { event.preventDefault(); if (!pass) return; setBusy(true); const ok = await load(pass, true); setBusy(false); if (ok) { localStorage.setItem('adminPass', pass); setLoggedIn(true); setNotice(null) } else setNotice({ type: 'error', text: 'That password is not valid. Please try again.' }) }
+  async function generate() { setBusy(true); try { const { data } = await api.post('/admin/generate', { count: 1 }, { headers: authHeaders(pass) }); await load(pass, true); setTab('tags'); setNotice({ type: 'success', text: `New QR tag created: ${data.created.length} tag ready to print.` }) } catch (err) { setNotice({ type: 'error', text: err.response?.data?.error || 'Could not create a QR tag.' }) } finally { setBusy(false) } }
+  async function exportCSV() { try { const res = await api.get('/admin/export', { headers: authHeaders(pass), responseType: 'blob' }); const url = URL.createObjectURL(res.data); const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'sampark-tags.csv'; anchor.click(); URL.revokeObjectURL(url) } catch { setNotice({ type: 'error', text: 'Could not export your data.' }) } }
+  function logout() { localStorage.removeItem('adminPass'); setPass(''); setLoggedIn(false); setQrs([]); setNotice(null) }
+  const used = qrs.filter((q) => q.used)
+  const visible = useMemo(() => used.filter((q) => [q.owner?.name, q.owner?.mobile, q.owner?.carNumber, q.id].join(' ').toLowerCase().includes(search.toLowerCase())), [used, search])
 
-  async function previewCSV() {
-    setLoading(true)
-    try {
-      const auth = { 'x-admin-pass': localStorage.getItem('adminPass') || adminPass }
-      const res = await api.get('/admin/list', { headers: auth })
-      const qrs = res.data.qrs || []
-      setPreview(qrs)
-      setNotice(`Preview ${qrs.length} rows`)
-      setView('preview')
-    } catch (err) {
-      const msg = err.response?.data?.error || err.message
-      setNotice(`Error: ${msg}`)
-    } finally {
-      setLoading(false)
-    }
-  }
+  if (!loggedIn) return <div className="mx-auto max-w-md py-14"><div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm"><p className="text-sm font-bold tracking-wide text-teal-700">SAMPARK ADMIN</p><h1 className="mt-2 text-2xl font-bold">Welcome back</h1><p className="mt-2 text-slate-600">Sign in to manage your vehicle QR tags.</p><form className="mt-6" onSubmit={login}><label className="label" htmlFor="password">Admin password</label><input id="password" className="field" type="password" value={pass} onChange={(e) => setPass(e.target.value)} autoFocus required />{notice && <p className="mt-3 text-sm text-rose-700">{notice.text}</p>}<button className="btn mt-5 w-full" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button></form></div></div>
 
-  async function exportCSV() {
-    try {
-      const auth = { 'x-admin-pass': localStorage.getItem('adminPass') || adminPass }
-      const res = await api.get('/admin/export', { headers: auth, responseType: 'blob' })
-      const url = window.URL.createObjectURL(new Blob([res.data]))
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'qrs.csv'
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      window.URL.revokeObjectURL(url)
-    } catch (err) {
-      alert(err.response?.data?.error || err.message)
-    }
-  }
-
-  function handleLogin() {
-    if (!adminPass) return alert('Enter admin password')
-    localStorage.setItem('adminPass', adminPass)
-    setIsLogged(true)
-    previewCSV()
-    loadRecentUsers()
-  }
-
-  function handleLogout() {
-    localStorage.removeItem('adminPass')
-    setAdminPass('')
-    setIsLogged(false)
-    setList([])
-    setPreview(null)
-  }
-
-  async function loadRecentUsers() {
-    setLoading(true)
-    try {
-      const res = await api.get('/admin/list', { headers: { 'x-admin-pass': localStorage.getItem('adminPass') || adminPass } })
-      const qrs = res.data.qrs || []
-      const used = qrs.filter((q) => q.used).sort((a, b) => new Date(b.usedAt || 0) - new Date(a.usedAt || 0))
-      setUsers(used)
-    } catch (err) {
-      alert(err.response?.data?.error || err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    if (isLogged) loadRecentUsers()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLogged])
-
-  return (
-    <div className="p-6">
-      {notice && (
-        <div className="max-w-6xl mx-auto mb-4">
-          <div className="bg-indigo-50 border-l-4 border-indigo-400 p-3 text-indigo-700">{notice}</div>
-        </div>
-      )}
-      {!isLogged ? (
-        <div className="max-w-md mx-auto bg-white rounded shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Admin Login</h2>
-          <p className="muted mb-3">Enter the admin password to access the dashboard.</p>
-          <input className="w-full border rounded px-2 py-2 mb-3" type="password" value={adminPass} onChange={(e) => setAdminPass(e.target.value)} />
-          <div className="flex gap-3">
-            <button className="btn" onClick={handleLogin}>Login</button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex gap-6">
-          <aside className="w-56 bg-white rounded shadow p-4 h-[480px]">
-            <div className="mb-4">
-              <div className="font-semibold">Admin</div>
-              <div className="muted text-sm">Manage QR tags</div>
-            </div>
-            <div className="flex flex-col gap-2">
-              {/** Explicit active/inactive classes so Tailwind picks them up reliably */}
-              {(() => {
-                const base = 'text-left px-3 py-2 rounded';
-                const active = 'bg-indigo-100 font-semibold border-l-4 border-indigo-600';
-                const inactive = 'hover:bg-gray-50';
-                return (
-                  <>
-                    <button className={`${base} ${view === 'qrs' ? active : inactive}`} onClick={() => setView('qrs')}>QR Management</button>
-                    <button className={`${base} ${view === 'users' ? active : inactive}`} onClick={() => setView('users')}>Recent Users</button>
-                    <button className={`${base} ${view === 'preview' ? active : inactive}`} onClick={() => { setView('preview'); previewCSV(); }}>CSV Preview</button>
-                  </>
-                )
-              })()}
-
-              <button className="text-left px-3 py-2 rounded hover:bg-gray-50" onClick={generate}>Generate QR</button>
-              <button className="text-left px-3 py-2 rounded hover:bg-gray-50" onClick={loadAll}>Load All</button>
-              <button className="text-left px-3 py-2 rounded hover:bg-gray-50" onClick={exportCSV}>Export CSV</button>
-              <button className="text-left px-3 py-2 rounded hover:bg-gray-50 text-red-600 mt-4" onClick={handleLogout}>Logout</button>
-            </div>
-          </aside>
-          <section className="flex-1">
-            {view === 'qrs' && (
-              <div>
-                <h2 className="text-xl font-semibold mb-4">QR Tags</h2>
-                {/* Preview is now its own view; removed from QR management */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {list.map((q) => (
-                    <div key={q.id} className="bg-white rounded shadow p-4">
-                      <div className="flex items-start gap-3">
-                        <div>
-                          <QRCode value={q.url} size={120} />
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-sm break-words"><a href={q.url} target="_blank" rel="noreferrer" className="text-indigo-600">{q.url}</a></div>
-                          <div className="muted mt-2">Used: {q.used ? 'yes' : 'no'}</div>
-                            <div className="mt-3 flex gap-3">
-                              <a className="text-sm text-indigo-600" href={`${window.location.origin}/qr/${q.id}`} target="_blank" rel="noreferrer">Open QR page</a>
-                              <a className="text-sm text-indigo-600" href={`${window.location.origin}/card/${q.id}`} target="_blank" rel="noreferrer">Open Card (printable)</a>
-                            </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {view === 'users' && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold">Recent Registered Users</h2>
-                  <div className="flex items-center gap-2">
-                    <input className="border rounded px-2 py-1" placeholder="Search name, mobile or car" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
-                  </div>
-                </div>
-
-                <div className="bg-white rounded shadow">
-                  <table className="min-w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="px-3 py-2">When</th>
-                        <th className="px-3 py-2">Name</th>
-                        <th className="px-3 py-2">Mobile</th>
-                        <th className="px-3 py-2">Car</th>
-                        <th className="px-3 py-2">QR ID</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
-                        const filtered = users.filter((u) => {
-                          if (!search) return true
-                          const s = search.toLowerCase()
-                          return (u.owner?.name || '').toLowerCase().includes(s) || (u.owner?.mobile || '').toLowerCase().includes(s) || (u.owner?.carNumber || '').toLowerCase().includes(s) || u.id.includes(s)
-                        })
-                        const start = (page - 1) * perPage
-                        const pageItems = filtered.slice(start, start + perPage)
-                        return pageItems.map((r) => (
-                          <tr key={r.id} className="border-b last:border-0">
-                            <td className="px-3 py-2">{new Date(r.usedAt).toLocaleString()}</td>
-                            <td className="px-3 py-2">{r.owner?.name}</td>
-                            <td className="px-3 py-2">{r.owner?.mobile}</td>
-                            <td className="px-3 py-2">{r.owner?.carNumber}</td>
-                            <td className="px-3 py-2 break-all">{r.id}</td>
-                          </tr>
-                        ))
-                      })()}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="flex items-center justify-between mt-3">
-                  <div className="muted">Page {page}</div>
-                  <div className="flex items-center gap-2">
-                    <button className="px-3 py-1 border rounded" onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</button>
-                    <button className="px-3 py-1 border rounded" onClick={() => setPage((p) => p + 1)}>Next</button>
-                  </div>
-                </div>
-              </div>
-            )}
-            {view === 'preview' && (
-              <div>
-                <h2 className="text-xl font-semibold mb-4">CSV Preview</h2>
-                <div className="mb-4 bg-white p-3 rounded shadow">
-                  <div className="text-sm font-medium mb-2">Rows: {preview?.length || 0}</div>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full text-left text-sm">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="px-3 py-2">ID</th>
-                          <th className="px-3 py-2">Used</th>
-                          <th className="px-3 py-2">Name</th>
-                          <th className="px-3 py-2">Mobile</th>
-                          <th className="px-3 py-2">Car</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(preview || []).map((r) => (
-                          <tr key={r.id} className="border-b">
-                            <td className="px-3 py-2 break-all">{r.id}</td>
-                            <td className="px-3 py-2">{r.used ? 'yes' : 'no'}</td>
-                            <td className="px-3 py-2">{r.owner?.name || ''}</td>
-                            <td className="px-3 py-2">{r.owner?.mobile || ''}</td>
-                            <td className="px-3 py-2">{r.owner?.carNumber || ''}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-          </section>
-        </div>
-      )}
-    </div>
-  )
+  return <div className="py-8 sm:py-10"><div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-sm font-bold tracking-wide text-teal-700">ADMIN DASHBOARD</p><h1 className="mt-1 text-3xl font-bold tracking-tight">QR tag management</h1><p className="mt-2 text-slate-600">Create, print, and monitor SAMPARK tags.</p></div><div className="flex gap-3"><button className="btn-secondary" onClick={exportCSV}>Export CSV</button><button className="btn" disabled={busy} onClick={generate}>{busy ? 'Working…' : '+ Create QR tag'}</button></div></div>{notice && <div role="status" className={`mb-6 rounded-lg px-4 py-3 text-sm ${notice.type === 'error' ? 'bg-rose-50 text-rose-800' : 'bg-teal-50 text-teal-800'}`}>{notice.text}</div>}<div className="mb-6 flex gap-1 overflow-x-auto border-b border-slate-200"><Tab active={tab === 'overview'} onClick={() => setTab('overview')}>Overview</Tab><Tab active={tab === 'tags'} onClick={() => setTab('tags')}>QR tags</Tab><Tab active={tab === 'vehicles'} onClick={() => setTab('vehicles')}>Registered vehicles</Tab><button className="ml-auto px-3 py-3 text-sm font-semibold text-slate-500 hover:text-rose-700" onClick={logout}>Sign out</button></div>{tab === 'overview' && <section><div className="grid gap-4 sm:grid-cols-3"><Metric label="Total tags" value={qrs.length} /><Metric label="Registered" value={used.length} /><Metric label="Available" value={qrs.length - used.length} /></div><div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6"><h2 className="text-lg font-bold">Start here</h2><p className="mt-2 text-slate-600">Create a QR tag, open its print-ready card, and attach it to the vehicle. The owner can then register the tag from their phone.</p><button className="btn mt-5" onClick={generate} disabled={busy}>Create first tag</button></div></section>}{tab === 'tags' && <Tags qrs={qrs} />}{tab === 'vehicles' && <section><div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row"><h2 className="text-xl font-bold">Registered vehicles</h2><input className="field mt-0 max-w-xs" placeholder="Search name, phone or vehicle" value={search} onChange={(e) => setSearch(e.target.value)} /></div><div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white"><table className="min-w-full text-left text-sm"><thead className="bg-slate-50 text-slate-600"><tr><th className="px-4 py-3 font-semibold">Owner</th><th className="px-4 py-3 font-semibold">Vehicle</th><th className="px-4 py-3 font-semibold">Registered</th></tr></thead><tbody>{visible.map((q) => <tr key={q.id} className="border-t border-slate-100"><td className="px-4 py-3"><strong className="block">{q.owner?.name}</strong><span className="text-slate-500">{q.owner?.mobile}</span></td><td className="px-4 py-3 font-medium">{q.owner?.carNumber}</td><td className="px-4 py-3 text-slate-500">{q.usedAt ? new Date(q.usedAt).toLocaleDateString() : '—'}</td></tr>)}{!visible.length && <tr><td colSpan="3" className="px-4 py-10 text-center text-slate-500">No registered vehicles found.</td></tr>}</tbody></table></div></section>}</div>
 }
+function Tab({ active, onClick, children }) { return <button className={`whitespace-nowrap border-b-2 px-3 py-3 text-sm font-semibold ${active ? 'border-teal-700 text-teal-800' : 'border-transparent text-slate-500 hover:text-slate-800'}`} onClick={onClick}>{children}</button> }
+function Metric({ label, value }) { return <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-sm font-semibold text-slate-500">{label}</p><p className="mt-2 text-3xl font-bold">{value}</p></div> }
+function Tags({ qrs }) { return <section><div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-bold">QR tags</h2><span className="text-sm text-slate-500">{qrs.length} total</span></div>{!qrs.length ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">No QR tags yet. Create one to get started.</div> : <div className="grid gap-4 md:grid-cols-2">{qrs.slice().reverse().map((q) => { const url = `${window.location.origin}/qr/${q.id}`; return <article key={q.id} className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="shrink-0 rounded-lg border border-slate-200 p-2"><QRCode value={url} size={104} /></div><div className="min-w-0"><span className={`inline-flex rounded-full px-2 py-1 text-xs font-bold ${q.used ? 'bg-teal-50 text-teal-800' : 'bg-amber-50 text-amber-800'}`}>{q.used ? 'Registered' : 'Awaiting registration'}</span><p className="mt-3 truncate text-sm text-slate-500">Tag {q.id.slice(0, 8)}</p><div className="mt-3 flex flex-wrap gap-3 text-sm font-semibold"><a className="text-teal-700 hover:text-teal-900" href={`/card/${q.id}`} target="_blank" rel="noreferrer">Print card</a><a className="text-teal-700 hover:text-teal-900" href={url} target="_blank" rel="noreferrer">Open registration</a></div></div></article> })}</div>}</section> }

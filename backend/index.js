@@ -53,13 +53,12 @@ app.get('/qr/:id', (req, res) => {
   const db = readDB();
   const entry = db.qrs.find((q) => q.id === id);
   if (!entry) return res.status(404).json({ error: 'QR not found' });
-  // return public fields
+  // Keep personally identifiable information private on public QR scans.
+  // Full owner information remains available through the authenticated admin API.
   const publicEntry = {
     id: entry.id,
     used: entry.used,
-    owner: entry.owner || null,
     createdAt: entry.createdAt || null,
-    usedAt: entry.usedAt || null,
   };
   res.json(publicEntry);
 });

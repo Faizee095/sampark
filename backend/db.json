@@ -126,6 +126,22 @@
       "id": "577dffa3-a233-42ab-a7bd-2e36100d9fcb",
       "used": false,
       "createdAt": "2026-06-10T09:07:02.520Z"
+    },
+    {
+      "id": "1552df48-4ab1-49e5-a13a-dcb7fac03ef4",
+      "used": false,
+      "createdAt": "2026-07-27T05:44:52.427Z"
+    },
+    {
+      "id": "8632c8f3-f881-47e7-bd17-9d33577e149e",
+      "used": true,
+      "createdAt": "2026-07-27T05:46:11.983Z",
+      "owner": {
+        "name": "LAtest customer",
+        "mobile": "4515656165165",
+        "carNumber": "SDJKFHJ44456"
+      },
+      "usedAt": "2026-07-27T05:48:26.234Z"
     }
   ]
 }
