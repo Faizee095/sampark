@@ -10,7 +10,7 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-const DB_PATH = path.join(__dirname, 'db.json');
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'db.json');
 const PORT = process.env.PORT || 4000;
 const ADMIN_PASS = process.env.ADMIN_PASS || 'admin123';
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
@@ -53,12 +53,14 @@ app.get('/qr/:id', (req, res) => {
   const db = readDB();
   const entry = db.qrs.find((q) => q.id === id);
   if (!entry) return res.status(404).json({ error: 'QR not found' });
-  // Keep personally identifiable information private on public QR scans.
-  // Full owner information remains available through the authenticated admin API.
+  // A registered tag is intended to let a person at the vehicle reach its owner.
+  // The registration screen explicitly tells owners that these details are public.
   const publicEntry = {
     id: entry.id,
     used: entry.used,
+    owner: entry.used ? entry.owner : null,
     createdAt: entry.createdAt || null,
+    usedAt: entry.usedAt || null,
   };
   res.json(publicEntry);
 });

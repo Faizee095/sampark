@@ -21,7 +21,7 @@ export default function Card() {
           <div className="p-8 sm:p-10">
             <p className="text-sm font-extrabold tracking-[0.2em] text-teal-700">SAMPARK</p>
             <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-950">Need to reach this vehicle owner?</h1>
-            <p className="mt-4 max-w-lg leading-7 text-slate-600">Scan the QR code with your phone camera. The tag helps confirm the vehicle is registered while keeping the owner’s personal details private.</p>
+            <p className="mt-4 max-w-lg leading-7 text-slate-600">Scan the QR code with your phone camera to see the registered vehicle and owner contact details for parking or emergency-related issues.</p>
             <div className="mt-8 grid gap-3 sm:grid-cols-3"><Feature title="Parking issue" text="Get help quickly" /><Feature title="Emergency" text="Identify an active tag" /><Feature title="Private by design" text="No contact details printed" /></div>
             <p className="mt-8 text-xs font-medium text-slate-400">SAMPARK · Smart vehicle QR tag</p>
           </div>
