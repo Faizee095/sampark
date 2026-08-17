@@ -42,4 +42,8 @@ export function signOut() { return supabase.auth.signOut() }
 
 export async function listTags() { return rpc('list_tags') }
 
-export async function generateTags(count) { return rpc('generate_tags', { p_count: count }) }
+export async function generateTags(count, batchCode, orderReference) { return rpc('generate_tags', { p_count: count, p_batch_code: batchCode, p_order_reference: orderReference }) }
+export function markTagsPrinted(tokens) { return rpc('mark_tags_printed', { p_tokens: tokens }) }
+export function updateFulfilment(tokens, action, shippingReference = null) { return rpc('update_tag_fulfilment', { p_tokens: tokens, p_action: action, p_shipping_reference: shippingReference }) }
+export function deactivateTag(token) { return rpc('deactivate_tag', { p_token: token }) }
+export async function reissueTag(token) { return singleRow(await rpc('reissue_tag', { p_token: token })) }
