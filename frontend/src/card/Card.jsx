@@ -1,6 +1,6 @@
 import React from 'react'
 import { useParams } from 'react-router-dom'
-import QRCode from 'qrcode.react'
+import { QRCodeSVG } from 'qrcode.react'
 import { lookupTag } from '../api'
 
 export default function Card() {
@@ -25,7 +25,7 @@ export default function Card() {
             <div className="mt-8 grid gap-3 sm:grid-cols-3"><Feature title="Parking issue" text="Get help quickly" /><Feature title="Emergency" text="Identify an active tag" /><Feature title="Private by design" text="No contact details printed" /></div>
             <p className="mt-8 text-xs font-medium text-slate-400">SAMPARK · Smart vehicle QR tag</p>
           </div>
-          <div className="flex flex-col items-center justify-center bg-teal-700 p-8 text-center text-white"><div className="rounded-xl bg-white p-3 shadow-lg"><QRCode value={url} size={170} /></div><p className="mt-5 text-sm font-semibold">Scan to open</p><p className="mt-1 text-xs text-teal-100">Vehicle tag #{entry.scan_token.slice(0, 8).toUpperCase()}</p></div>
+          <div className="flex flex-col items-center justify-center bg-teal-700 p-8 text-center text-white"><div className="rounded-xl bg-white p-3 shadow-lg"><QRCodeSVG value={url} size={170} /></div><p className="mt-5 text-sm font-semibold">Scan to open</p><p className="mt-1 text-xs text-teal-100">Vehicle tag #{entry.scan_token.slice(0, 8).toUpperCase()}</p></div>
         </div>
       </article>
     </div>
