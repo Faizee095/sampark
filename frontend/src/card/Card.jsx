@@ -1,18 +1,18 @@
 import React from 'react'
 import { useParams } from 'react-router-dom'
 import QRCode from 'qrcode.react'
-import api from '../api'
+import { lookupTag } from '../api'
 
 export default function Card() {
   const { id } = useParams()
   const [entry, setEntry] = React.useState(null)
   const [error, setError] = React.useState('')
   React.useEffect(() => {
-    api.get(`/qr/${id}`).then(({ data }) => setEntry(data)).catch(() => setError('This QR tag is unavailable.'))
+    lookupTag(id).then(setEntry).catch(() => setError('This QR tag is unavailable.'))
   }, [id])
   if (error) return <div className="py-16 text-center text-rose-700">{error}</div>
   if (!entry) return <div className="py-16 text-center text-slate-500">Preparing print card…</div>
-  const url = `${window.location.origin}/qr/${entry.id}`
+  const url = `${window.location.origin}/qr/${entry.scan_token}`
   return (
     <div className="py-8 sm:py-12">
       <div className="no-print mx-auto mb-5 flex max-w-3xl justify-end"><button className="btn" onClick={() => window.print()}>Print card</button></div>
@@ -25,7 +25,7 @@ export default function Card() {
             <div className="mt-8 grid gap-3 sm:grid-cols-3"><Feature title="Parking issue" text="Get help quickly" /><Feature title="Emergency" text="Identify an active tag" /><Feature title="Private by design" text="No contact details printed" /></div>
             <p className="mt-8 text-xs font-medium text-slate-400">SAMPARK · Smart vehicle QR tag</p>
           </div>
-          <div className="flex flex-col items-center justify-center bg-teal-700 p-8 text-center text-white"><div className="rounded-xl bg-white p-3 shadow-lg"><QRCode value={url} size={170} /></div><p className="mt-5 text-sm font-semibold">Scan to open</p><p className="mt-1 text-xs text-teal-100">Vehicle tag #{entry.id.slice(0, 8).toUpperCase()}</p></div>
+          <div className="flex flex-col items-center justify-center bg-teal-700 p-8 text-center text-white"><div className="rounded-xl bg-white p-3 shadow-lg"><QRCode value={url} size={170} /></div><p className="mt-5 text-sm font-semibold">Scan to open</p><p className="mt-1 text-xs text-teal-100">Vehicle tag #{entry.scan_token.slice(0, 8).toUpperCase()}</p></div>
         </div>
       </article>
     </div>

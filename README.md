@@ -1,50 +1,82 @@
-# Parking Ticket Prototype
+# SAMPARK
 
-This workspace contains a minimal file-based prototype for the QR parking-ticket idea.
+SAMPARK provides sell-ready QR tags for vehicles. A customer receives an
+unregistered tag, scans it once to register their name, mobile number, and
+vehicle number, then places it on the vehicle. Later scans display the
+registered details for parking or emergency-related contact.
 
-Architecture
-- `backend` — Express server storing data in `db.json` (file-based).
-- `frontend` — Vite + React app for Admin and QR registration flows.
+## Architecture
 
-Quick start
+- `frontend/` — Vite + React application, deployed to Netlify.
+- `supabase/` — Postgres schema, Row Level Security policies, and secure
+  database functions.
 
-1) Start backend
+There is no separately hosted backend. Supabase handles the database,
+authentication, and controlled QR-tag operations.
+
+## Set up Supabase
+
+1. Create a Supabase project.
+2. In **SQL Editor**, run these files in order:
+
+   - `supabase/migrations/202608170001_initial_schema.sql`
+   - `supabase/migrations/202608170002_fix_register_tag.sql`
+
+3. In **Authentication > Users**, create the administrator email/password
+   account.
+4. Copy that user’s UUID and run the final `insert into public.admins ...`
+   command from the first migration file.
+5. In **Project Settings > API** (or **Connect**), copy the Project URL and
+   publishable key.
+
+Never place a Supabase secret key or service-role key in the frontend.
+
+## Run locally
+
+Copy the environment template and add your Supabase values:
 
 ```powershell
-cd backend
-npm install
-# copy .env.example to .env and adjust ADMIN_PASS if desired
-npm run start
+Copy-Item frontend\.env.example frontend\.env
 ```
 
-2) Start frontend
+```env
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_public_key
+```
+
+Then start the application:
 
 ```powershell
 cd frontend
-npm install
-npm run dev
-```
-
-Tailwind CSS
-- After updating packages, install Tailwind/PostCSS dev deps and run the dev server. From `frontend` run:
-
-```powershell
-npm install
-# or if you encounter peer dependency issues:
 npm install --legacy-peer-deps
 npm run dev
 ```
 
-If you want to enable automatic Tailwind builds, ensure `postcss.config.cjs` and `tailwind.config.cjs` are present (they are included in the project).
+Open `http://localhost:5173/admin` and sign in with the Supabase administrator
+account. Create a test tag and scan it before and after registration.
 
-Admin
-- Open `http://localhost:5173/admin`
-- Use the admin pass `admin123` (or set `ADMIN_PASS` in backend `.env` and supply it in the admin UI)
-- Generate QR codes that will display a URL you can print
+## Deploy to Netlify
 
-QR flow
-- Scanning a QR opens `http://localhost:5173/qr/:id`
-- If unregistered, the user fills name/mobile/car number — submission marks the QR as used and stores details in `backend/db.json`.
+1. Push this repository to GitHub.
+2. In Netlify, select **Add new site > Import an existing project**.
+3. Choose the repository and set:
 
-Notes
-- This is a prototype to iterate on. Next steps: payments, printable/exportable PDFs, admin auth persistence, production DB.
+   - Base directory: `frontend`
+   - Build command: `npm run build`
+   - Publish directory: `dist`
+
+4. Add these Netlify environment variables:
+
+   ```text
+   VITE_SUPABASE_URL=https://xuejibgecneygwvgkoiv.supabase.co
+   VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
+   ```
+
+5. Deploy the site. The included `frontend/netlify.toml` ensures direct QR
+   routes such as `/qr/<token>` load correctly.
+
+## Selling tags
+
+From `/admin`, create one or more unregistered tags. Open **Print card** for a
+tag and either print it for postal delivery or choose **Save as PDF** in the
+browser print dialog for digital delivery.

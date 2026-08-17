@@ -1,0 +1,11 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = true
+
+# Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in the Netlify dashboard.
